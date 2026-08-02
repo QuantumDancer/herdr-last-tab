@@ -1,16 +1,21 @@
 <!--
 Sync Impact Report
-- Version change: none → 1.0.0 (initial ratification)
-- Modified principles: none (first definition)
-- Added sections:
-  - Core Principles: I. Herdr Is The Whole API, II. Stable Identity, Owned State,
-    III. Quiet No-Ops, Loud Failures, IV. Verifiable Without Herdr Running
-  - Packaging Constraints
-  - Development Workflow
-  - Governance
-- Removed sections: template placeholder Principles 5 (four principles are the working minimum;
-  a fifth would only restate the four)
+- Version change: 1.0.0 → 1.1.0 (MINOR: new workflow guidance, no principle redefined)
+- Modified principles: none
+- Modified sections:
+  - Development Workflow: added Conventional Commits requirement and the
+    pull-request / CodeRabbit / human-merge gate
+  - Governance: review-verifies-compliance bullet now names both review stages
+- Added sections: none
+- Removed sections: none
+- Templates requiring update: none — `.specify/templates/plan-template.md` derives its
+  Constitution Check gates from this file at plan time and hardcodes no principle list
 - Follow-up TODOs: none
+
+Prior revisions
+- none → 1.0.0 (initial ratification): Core Principles I-IV, Packaging Constraints,
+  Development Workflow, Governance. Dropped the template's fifth placeholder principle —
+  four are the working minimum and a fifth would only restate them.
 -->
 
 # Herdr Last Tab Constitution
@@ -119,6 +124,18 @@ wiring that automation genuinely cannot reach.
   opportunistically inside unrelated changes.
 - Local development uses `herdr plugin link` against the checkout. A locally linked build MUST NOT
   be swapped into a GitHub-installed plugin root by hand.
+- Commit messages MUST follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+  a `<type>[(<scope>)]: <description>` subject, plus a body explaining any non-obvious design or
+  implementation trade-off. A breaking change MUST carry `!` before the colon and a
+  `BREAKING CHANGE:` footer naming what breaks — a renamed action ID under Packaging Constraints is
+  exactly that, and lands with the major version bump and README migration note in the same change.
+- Every feature MUST land through a pull request. Direct pushes to the default branch are not part
+  of this workflow, including for changes an author considers trivial.
+- Each pull request MUST be reviewed by CodeRabbit before it reaches a human. Every CodeRabbit
+  finding is fixed or answered in the thread; leaving one silently open blocks the human review.
+- A human review follows the automated one, and a human performs the merge. An agent MUST NOT merge
+  a pull request, approve its own change, or bypass a required review — a green check is evidence
+  for the human decision, never a substitute for it.
 
 ## Governance
 
@@ -130,9 +147,10 @@ an agent instruction conflicts with it, this document wins until it is amended.
 - Versioning is semantic: MAJOR for removing or redefining a principle in a way that invalidates
   existing practice, MINOR for adding a principle or materially expanding guidance, PATCH for
   clarifications and wording.
-- Every review verifies compliance. A change that violates a principle is either revised or
-  accompanied by an amendment — never merged as a silent exception.
+- Every review verifies compliance — the automated pass and the human one both. A change that
+  violates a principle is either revised or accompanied by an amendment — never merged as a silent
+  exception.
 - Complexity is justified in the change description or it is removed. This plugin is small on
   purpose; the burden of proof sits with the addition.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-02 | **Last Amended**: 2026-08-02
+**Version**: 1.1.0 | **Ratified**: 2026-08-02 | **Last Amended**: 2026-08-02
