@@ -1,0 +1,34 @@
+id = "quantumdancer.last-tab"
+name = "Last Tab"
+version = "0.1.0"
+# Verified floor, not a derived one: 0.7.5 is the only herdr this plugin has been exercised
+# against. Every event and field it uses exists at 0.7.5; whether they exist earlier is untested.
+# See research.md and the deferred task in SESSION.local.md.
+min_herdr_version = "0.7.5"
+description = "Toggle focus between the current tab and the previously focused tab, per workspace."
+platforms = ["linux", "macos"]
+
+# Downloads the prebuilt binary for this platform into $HERDR_PLUGIN_ROOT/bin, so installing
+# needs no Rust toolchain (FR-018). `herdr plugin link` skips this step, which is why every
+# entry point below goes through run.sh rather than naming a path directly.
+[[build]]
+command = ["bash", "herdr/install.sh"]
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "toggle"
+title = "Last tab"
+contexts = ["global", "workspace", "tab"]
+command = ["bash", "herdr/run.sh", "toggle"]
+
+[[events]]
+on = "tab.focused"
+command = ["bash", "herdr/run.sh", "tab-focused"]
+
+[[events]]
+on = "tab.closed"
+command = ["bash", "herdr/run.sh", "tab-closed"]
+
+[[events]]
+on = "workspace.closed"
+command = ["bash", "herdr/run.sh", "workspace-closed"]

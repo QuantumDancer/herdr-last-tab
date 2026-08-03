@@ -1,0 +1,6 @@
+# Pinned so CI and every local run resolve the exact same compiler and components —
+# a clippy or rustfmt drift between contributors would otherwise show up as CI failures
+# that don't reproduce locally.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
