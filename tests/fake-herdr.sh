@@ -20,6 +20,18 @@ set -euo pipefail
 #   FAKE_HERDR_FOCUS_DELAY    - seconds to sleep before `tab focus` responds, for widening a
 #                                concurrency test's race window without a rendezvous between
 #                                the processes under test.
+#   FAKE_HERDR_FOCUS_STATE_FILE - path to a file tracking which tab is currently focused, so
+#                                `api snapshot`'s `focused_tab_id` reflects a *previous*
+#                                successful `tab focus` call rather than staying frozen at
+#                                whatever FAKE_HERDR_SNAPSHOT_JSON said when the test started.
+#                                A real herdr's own snapshot would reflect that change; this
+#                                stateless script otherwise cannot, and the two-concurrent-
+#                                toggles test needs it to, because which of two racing
+#                                processes goes first is exactly what is under test - a static
+#                                snapshot value fixed by the test in advance cannot distinguish
+#                                a lock that correctly serializes the herdr round-trip from one
+#                                that does not. Unset (the default), the snapshot's own
+#                                `focused_tab_id` is used verbatim, as before.
 
 usage() {
   echo "usage: fake-herdr.sh api snapshot | tab focus <tab_id>" >&2
@@ -36,11 +48,31 @@ emit_error() {
 }
 
 snapshot_json() {
+  local base
   if [ -n "${FAKE_HERDR_SNAPSHOT_JSON:-}" ]; then
-    printf '%s' "$FAKE_HERDR_SNAPSHOT_JSON"
+    base="$FAKE_HERDR_SNAPSHOT_JSON"
   else
-    printf '%s' '{"focused_workspace_id":null,"focused_tab_id":null,"workspaces":[],"tabs":[]}'
+    base='{"focused_workspace_id":null,"focused_tab_id":null,"workspaces":[],"tabs":[]}'
   fi
+
+  # Substitute in whichever tab a prior `tab focus` call actually landed on, if the caller is
+  # tracking that (see FAKE_HERDR_FOCUS_STATE_FILE above). The test-supplied snapshot always
+  # produces `"focused_tab_id":"<id>"` with no embedded spaces, so a plain substitution is exact
+  # for every fixture this script is asked to produce - there is no general JSON here to parse.
+  if [ -n "${FAKE_HERDR_FOCUS_STATE_FILE:-}" ] && [ -f "$FAKE_HERDR_FOCUS_STATE_FILE" ]; then
+    local focused
+    focused="$(cat "$FAKE_HERDR_FOCUS_STATE_FILE")"
+    base="$(printf '%s' "$base" | sed -E "s/\"focused_tab_id\":\"[^\"]*\"/\"focused_tab_id\":\"${focused}\"/")"
+    # `active_tab_id` moves with it. A real herdr has one answer to "which tab is active in this
+    # workspace", so updating only the top-level field would hand the plugin a snapshot that
+    # disagrees with itself - and repair reads `active_tab_id` as the fallback for a dead
+    # current, so the disagreement is reachable rather than cosmetic. Every fixture this script
+    # is given holds exactly one workspace (`snapshot_json` in tests/cli.rs builds them all), so
+    # an unanchored substitution reaches that workspace's entry and no other.
+    base="$(printf '%s' "$base" | sed -E "s/\"active_tab_id\":\"[^\"]*\"/\"active_tab_id\":\"${focused}\"/")"
+  fi
+
+  printf '%s' "$base"
 }
 
 [ "$#" -ge 1 ] || usage
@@ -68,6 +100,9 @@ case "$1" in
 
     result="${FAKE_HERDR_FOCUS_RESULT:-ok}"
     if [ "$result" = "ok" ]; then
+      if [ -n "${FAKE_HERDR_FOCUS_STATE_FILE:-}" ]; then
+        printf '%s' "$tab_id" >"$FAKE_HERDR_FOCUS_STATE_FILE"
+      fi
       printf '{"id":"cli:tab:focus","result":{}}\n'
     else
       emit_error "$result" "cli:tab:focus"
