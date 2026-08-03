@@ -176,7 +176,7 @@ config, press the key, confirm the toggle runs. Change the key, reload, confirm 
 
 ### Tests for User Story 3
 
-- [ ] T040 [US3] Contract-test the manifest in `tests/cli.rs` — parse `herdr-plugin.toml` and assert `id == "quantumdancer.last-tab"`, the action's `id == "toggle"`, and that the four `command` entries name the four subcommands `src/main.rs` dispatches. The qualified `quantumdancer.last-tab.toggle` is what FR-016 makes a public contract and FR-019 protects, so a test is what stops it drifting silently in a refactor
+- [x] T040 [US3] Contract-test the manifest in `tests/cli.rs` — parse `herdr-plugin.toml` and assert `id == "quantumdancer.last-tab"`, the action's `id == "toggle"`, and that the four `command` entries name the four subcommands `src/main.rs` dispatches. The qualified `quantumdancer.last-tab.toggle` is what FR-016 makes a public contract and FR-019 protects, so a test is what stops it drifting silently in a refactor
 
 ### Implementation for User Story 3
 

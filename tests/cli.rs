@@ -3,10 +3,10 @@
 //! research.md's "the herdr seam" calls for. `tests/fake-herdr.sh` stands in for herdr; see its
 //! header comment for the fixtures it accepts.
 //!
-//! This Phase 2 slice (T020) covers only the failure exits reachable against the T016 stubs —
-//! every one of them aborts before a command body would do anything. The remaining rows of the
-//! exit-code contract (a real toggle's `0`-exit no-ops, and a `tab focus` failing with a
-//! non-`tab_not_found` envelope) need command bodies that arrive in Phase 3 and land in T026.
+//! Coverage here spans the whole exit-code contract: the failure exits that abort before a
+//! command body runs at all (T020), the `0`-exit no-ops and the non-`tab_not_found` envelope
+//! that need real command bodies (T026), per-workspace scoping and offline pruning (T036),
+//! concurrency (T037), and the manifest contract (T040).
 
 use std::path::PathBuf;
 use std::process::{Command, Output};
@@ -613,32 +613,42 @@ mod manifest_contract {
         // src/main.rs dispatches these four; a manifest entry naming anything else, or missing
         // one of these, would drift silently from the binary's actual subcommands without this
         // test catching it in review.
+        // The whole command vector is compared, not just the subcommand at the end of it. The
+        // launcher prefix is as much of the contract as the subcommand is — herdr runs exactly
+        // what is written here — so an entry naming the right subcommand behind a wrong or
+        // missing launcher would install a plugin whose every action fails at spawn, and a
+        // last-element check would call that manifest correct.
         let manifest = read_manifest();
-        let mut command_last_args: Vec<String> = manifest
+        let mut commands: Vec<Vec<String>> = manifest
             .actions
             .iter()
             .map(|action| action.command.clone())
             .chain(manifest.events.iter().map(|event| event.command.clone()))
-            .map(|command| command.last().cloned().expect("command must not be empty"))
             .collect();
-        command_last_args.sort();
+        commands.sort();
 
-        let mut expected = vec![
-            "toggle".to_string(),
-            "tab-focused".to_string(),
-            "tab-closed".to_string(),
-            "workspace-closed".to_string(),
-        ];
+        let mut expected: Vec<Vec<String>> =
+            ["toggle", "tab-focused", "tab-closed", "workspace-closed"]
+                .iter()
+                .map(|subcommand| {
+                    vec![
+                        "bash".to_string(),
+                        "herdr/run.sh".to_string(),
+                        (*subcommand).to_string(),
+                    ]
+                })
+                .collect();
         expected.sort();
 
-        assert_eq!(command_last_args, expected);
+        assert_eq!(commands, expected);
     }
 }
 
 #[test]
 fn every_subcommand_succeeds_against_a_working_fake_herdr() {
-    // T016's stubs take one snapshot and return `Ok(())`, so every subcommand should exit `0`
-    // silently against a fake herdr that answers `api snapshot` successfully.
+    // Against a fake herdr that answers `api snapshot` successfully and a workspace with no
+    // stored history, every subcommand has nothing to do — which is an FR-009 no-op, so each
+    // must exit `0` with empty stderr rather than treating "nothing to do" as a failure.
     for subcommand in ["toggle", "tab-focused", "tab-closed", "workspace-closed"] {
         let cmd = valid_command(subcommand, &format!("stub-ok-{subcommand}"));
         let output = run(cmd);
