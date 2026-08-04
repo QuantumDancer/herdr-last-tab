@@ -608,6 +608,49 @@ mod manifest_contract {
         assert_eq!(manifest.actions[0].id, "toggle");
     }
 
+    #[derive(Deserialize)]
+    struct CargoManifest {
+        package: CargoPackage,
+    }
+
+    #[derive(Deserialize)]
+    struct CargoPackage {
+        version: String,
+    }
+
+    #[test]
+    fn cargo_toml_and_herdr_plugin_toml_versions_agree() {
+        // T044: the version-to-tag rule (contracts/plugin-manifest.md) keeps three copies of the
+        // number in lockstep — Cargo.toml, herdr-plugin.toml, and the git tag `v<version>`. This
+        // test covers only the two copies CI can see; the tag is the release workflow's guard
+        // job's responsibility, because a tag doesn't exist until someone pushes one.
+        let cargo_toml_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let cargo_toml_raw =
+            std::fs::read_to_string(&cargo_toml_path).expect("Cargo.toml must exist");
+        let cargo_toml: CargoManifest =
+            toml::from_str(&cargo_toml_raw).expect("Cargo.toml must parse");
+
+        let manifest = read_manifest_with_version();
+
+        assert_eq!(
+            cargo_toml.package.version, manifest.version,
+            "Cargo.toml's [package] version and herdr-plugin.toml's version must match"
+        );
+    }
+
+    /// A minimal deserialization of `herdr-plugin.toml` naming just its `version`, kept separate
+    /// from `Manifest` above because that struct doesn't otherwise need the field.
+    fn read_manifest_with_version() -> ManifestVersion {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("herdr-plugin.toml");
+        let raw = std::fs::read_to_string(&path).expect("herdr-plugin.toml must exist");
+        toml::from_str(&raw).expect("herdr-plugin.toml must parse")
+    }
+
+    #[derive(Deserialize)]
+    struct ManifestVersion {
+        version: String,
+    }
+
     #[test]
     fn every_dispatched_subcommand_is_named_by_exactly_one_manifest_entry() {
         // src/main.rs dispatches these four; a manifest entry naming anything else, or missing
