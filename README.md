@@ -18,9 +18,49 @@ across workspaces, gets the wrong answer as soon as you touch a second workspace
 
 ## Install
 
-There is no released build yet, so the only install path today is a linked checkout. `link` is not a
-stopgap here: it is how this plugin is developed, and once a release exists it will behave
-identically to installing one for everything below this point.
+### From a release
+
+```bash
+herdr plugin install QuantumDancer/herdr-last-tab
+```
+
+This is the path a released version ships for: herdr's `install` runs the manifest's `[[build]]`
+step, which downloads a prebuilt binary matching your platform and verifies its sha256 before
+installing it — no Rust toolchain required.
+
+The release declares exactly four target triples, built and exercised (not just cross-compiled) on
+native runners of their own architecture:
+
+- `x86_64-unknown-linux-musl`
+- `aarch64-unknown-linux-musl`
+- `x86_64-apple-darwin`
+- `aarch64-apple-darwin`
+
+Three conditions are refused, and it matters which of them **herdr itself** refuses before the
+plugin ever runs and which the plugin's own install step refuses — they produce different messages,
+and only the first two are herdr's:
+
+- A herdr older than the **0.7.5** floor this plugin declares: refused by herdr with
+  `plugin_requires_newer_herdr`.
+- An operating system outside the two this plugin declares — anything that is neither Linux nor
+  macOS: refused by herdr with `platform_unsupported`.
+- A CPU architecture outside the four triples above, on an operating system that *is* declared — a
+  Linux host that is neither `x86_64` nor `aarch64`, say. herdr's `platforms` key names operating
+  systems, not triples, so herdr accepts this host and the refusal comes from the plugin's own
+  `herdr/install.sh`, which fails with `no prebuilt binary for <os>-<arch>` and points you at
+  building from source.
+
+Uninstall an install done this way with:
+
+```bash
+herdr plugin uninstall quantumdancer.last-tab
+```
+
+### From a linked checkout
+
+This is the development path, not a fallback for a missing release — it is how this plugin is
+built and tested, and it skips the manifest's `[[build]]` step (the one that downloads a prebuilt
+binary) entirely, so you need a Rust toolchain for it.
 
 ```bash
 cargo build --release
@@ -28,11 +68,10 @@ herdr plugin link .
 herdr plugin list
 ```
 
-`herdr plugin link` deliberately skips the manifest's `[[build]]` step — the one that would otherwise
-download a prebuilt binary — so nothing installs a binary for you here. `herdr/run.sh` falls back to
-`target/release/` when it finds no downloaded binary, and that fallback only exists once you've run
-`cargo build --release` yourself; if invoking the action below fails with "no such file", that build
-step is what's missing. `herdr plugin list` should show the plugin as `[local:<path>]`.
+`herdr/run.sh` falls back to `target/release/` when it finds no downloaded binary, and that fallback
+only exists once you've run `cargo build --release` yourself; if invoking the action below fails with
+"no such file", that build step is what's missing. `herdr plugin list` should show the plugin as
+`[local:<path>]`.
 
 Confirm the action registered:
 
@@ -53,7 +92,8 @@ plugin named separately via `--plugin`, while a keybinding (below) uses the **qu
 block that follows — this trips people up, so it is called out here rather than left for you to
 discover.
 
-Uninstall:
+Uninstall a linked checkout (different from the `uninstall` command above, which is for a plugin
+`install`ed from a release rather than `link`ed):
 
 ```bash
 herdr plugin unlink quantumdancer.last-tab
