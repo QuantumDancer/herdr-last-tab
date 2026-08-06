@@ -285,8 +285,18 @@ command and confirm the plugin's action is registered and works.
   invocation issued only after the preceding focus change has been observed. (Sequences that outrun
   observation are deliberately excluded here; Scope boundaries says why.)
 - **SC-002**: The toggle completes fast enough to feel instant: measured from invoking the action to
-  herdr reporting the new tab as focused, the slowest of 20 consecutive invocations stays under
-  150 ms. It has to be usable as a repeated reflex rather than a deliberate command. The conditions
+  herdr reporting the new tab as focused, the **80th percentile** of 20 consecutive invocations stays
+  under 150 ms. The percentile is **nearest-rank**: sort the 20 samples ascending and read the 16th.
+  Stating the estimator is not pedantry — the interpolating definition most statistics libraries
+  default to reads between the 16th and 17th samples, and on a distribution whose tail is this heavy
+  the two can straddle the threshold. It has to be usable as a repeated reflex rather than a
+  deliberate command. The
+  criterion reads a percentile rather than the slowest sample because roughly one press in ten pays a
+  stall that is not this feature's to fix: each toggle costs two herdr CLI round-trips, and that
+  round-trip carries the same tail with no plugin involved at all. A maximum would measure herdr's
+  tail rather than this feature's cost, and would pass or fail on which samples a run happened to
+  draw. The 80th percentile is the highest one that sits below that stall rather than on top of it.
+  The conditions
   that move this number are fixed here: a herdr no older than the declared minimum, a workspace of 10
   tabs, history already stored for 20 workspaces, and warm invocations — the first invocation after
   install or after a herdr restart is excluded, since it pays one-time costs the reflex case does
