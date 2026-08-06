@@ -1,7 +1,14 @@
 name: CI
 
+# Branch pushes are covered by the `pull_request` run, since every change reaches `main` through a
+# pull request. Leaving `push` unfiltered ran this same single job twice on any branch with a PR
+# open — the same four gates, the same commit, twice the minutes — and gave a spurious failure two
+# chances to appear: on `525e669` the push run went green through every step while its duplicate
+# died in `Set up job` during a GitHub incident, leaving the PR red for a commit that had passed.
+# `push` stays for `main` alone, so what actually ships is still gated directly.
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
