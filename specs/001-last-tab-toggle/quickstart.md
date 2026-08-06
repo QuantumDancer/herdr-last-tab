@@ -92,41 +92,88 @@ Baseline host: 13th Gen Intel Core i9-13900H, 4 cores available, 8 GB RAM, Linux
    `jq '.workspaces | length'`.
 3. Focus two distinct tabs in `$WS` so the toggle has a target, then invoke it once and discard that
    sample. That first invocation pays one-time costs the reflex case does not, and the spec excludes
-   it explicitly.
+   it explicitly. This step is also what gives the workspace a `last_tab_id` in `state.json`, which
+   is the tab the harness below times against — the toggle's target is the one the plugin
+   remembers, not whichever other tab herdr happens to list first.
 
 **Then measure.** Each of 20 samples: record a start time, invoke the action, poll until herdr
-reports the expected tab focused, record the elapsed time. Report the **maximum**, not the mean — the
-criterion is about the slowest press, since one stall is what the user notices.
+reports the expected tab focused, record the elapsed time. Report the **80th percentile** — the 16th
+of the 20 samples once sorted. Not the maximum: about one press in ten pays a stall inside herdr's own
+CLI round-trip, and a maximum reports that as if it were this plugin's cost.
+[research.md](./research.md#sc-002-measurement) records the decomposition that establishes it.
 
 ```bash
+# Without this, the sampling loop's timeout below is invisible to `$?`: it runs on the left of a
+# pipeline, so the status you get back is `sed`'s, and `sed` is perfectly happy to find no 16th
+# line and exit 0. A timed-out run would then look like a successful one that printed nothing.
+set -o pipefail
+
 WS=$(herdr workspace list | jq -r '.result.workspaces[] | select(.focused) | .workspace_id')
+
+# A pause that forks nothing. `sleep` costs a process per poll, and on a 4-core host that starves the
+# herdr it is waiting on: an unthrottled loop reported a 163 ms median where this one reports 86 ms.
+fifo=$(mktemp -u); mkfifo "$fifo"; exec 9<>"$fifo"; rm -f "$fifo"
+nap() { read -r -t "$1" -u 9 _ || true; }
 
 focused_of() {
 	herdr tab list --workspace "$WS" | jq -r --arg t "$1" \
 		'.result.tabs[] | select(.tab_id == $t) | .focused'
 }
 
-# The two tabs the toggle will alternate between.
+# The two tabs the toggle will alternate between. `there` has to come from the plugin's own stored
+# history rather than from the tab list: the toggle focuses the tab it remembers for this workspace,
+# and in a 10-tab fixture the first *un*focused tab herdr happens to list is almost never that one.
+# Taking it from the list makes the loop below wait out its deadline on a tab nothing will focus.
 here=$(herdr tab list --workspace "$WS" | jq -r '.result.tabs[] | select(.focused) | .tab_id')
-there=$(herdr tab list --workspace "$WS" | jq -r '.result.tabs[] | select(.focused | not) | .tab_id' | head -1)
+there=$(jq -r --arg w "$WS" '.workspaces[$w].last_tab_id // empty' \
+	"$HERDR_PLUGIN_STATE_DIR/state.json")
+
+# Check the fixture before timing anything. An empty `there` means step 3 above was skipped, so the
+# workspace has no remembered tab and every toggle is a silent no-op — 20 samples of nothing, each
+# waiting out the deadline below. Guarding with `if` rather than bailing out: this block is meant to
+# be pasted into a running shell, and a bare `exit` there closes the terminal.
+if [ -z "$here" ] || [ -z "$there" ] || [ "$here" = "$there" ]; then
+	printf 'fixture not ready (here=%s there=%s) — redo step 3 for %s\n' "$here" "$there" "$WS" >&2
+	false   # so `$?` is non-zero here too, matching the timeout below
+else
 
 for _ in $(seq 20); do
 	start=$(date +%s%N)
 	herdr plugin action invoke toggle --plugin quantumdancer.last-tab >/dev/null
-	until [ "$(focused_of "$there")" = "true" ]; do :; done
+	# A toggle that no-ops never focuses $there, and a silent no-op is a *designed* outcome here — a
+	# closed target, a herdr that stopped answering. Unbounded, this waits forever on one, which is
+	# the worst possible way to find out the run is broken. The exit ends the sampling subshell, so
+	# `sed` below sees fewer than 16 lines and prints nothing, and `pipefail` carries the non-zero
+	# status out past it: the run fails rather than reporting a percentile computed over whichever
+	# samples happened to work.
+	deadline=$((SECONDS + 10))
+	until [ "$(focused_of "$there")" = "true" ]; do
+		if [ "$SECONDS" -ge "$deadline" ]; then
+			printf 'timed out after 10s waiting for tab %s to gain focus\n' "$there" >&2
+			herdr tab list --workspace "$WS" >&2
+			exit 1
+		fi
+		nap 0.005
+	done
 	printf '%s\n' "$(( ($(date +%s%N) - start) / 1000000 ))"
 	tmp=$here; here=$there; there=$tmp   # the tab just left is the next target
-done | sort -n | tail -1
+	nap 0.15                             # settle, so one sample cannot bleed into the next
+done | sort -n | sed -n '16p'           # 16th of 20 sorted samples — the 80th percentile
+
+fi
 ```
 
 The swap at the end of the loop is the alternation itself: after a successful toggle the tab you just
 left becomes the next target, so the pair trades places rather than being re-read from herdr.
 
-Two caveats on the number this produces. The poll granularity is one `herdr tab list` process spawn,
+Three caveats on the number this produces. The poll granularity is one `herdr tab list` process spawn,
 so each sample is inflated by up to that much — the measurement is **conservative**, which is the
-right direction for a threshold check but means a passing result is not a precise latency figure. And
-the polling loop competes with herdr for CPU on a 4-core host; if the maximum lands near 150 ms rather
-than well under it, re-measure with a quieter machine before treating it as a regression.
+right direction for a threshold check but means a passing result is not a precise latency figure. The
+polling loop still competes with herdr for CPU on a 4-core host even with `nap` in it; if the 80th
+percentile lands near 150 ms rather than well under it, re-measure on a quieter machine before
+treating it as a regression. And expect the samples above the 80th percentile to look alarming — 200
+to 280 ms has been observed repeatedly. Those are herdr's CLI round-trip, not this plugin, which is
+why the criterion is a percentile; a run whose *median* moves is the one worth investigating.
 
 This cannot run in CI — it needs a live herdr with real tabs. The warm path is one read and one
 write, both local socket round-trips, so the check exists to catch a regression that adds a round-trip

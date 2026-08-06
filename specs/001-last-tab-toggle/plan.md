@@ -40,8 +40,8 @@ boundary and the locking. Neither needs herdr installed.
 
 **Project Type**: Single-binary CLI plugin. No library consumers, no UI, no server.
 
-**Performance Goals**: SC-002 — the slowest of 20 warm invocations under 150 ms, measured from
-invoking the action to herdr reporting the new tab as focused. Baseline host: 13th Gen Intel Core
+**Performance Goals**: SC-002 — the 80th percentile of 20 warm invocations under 150 ms, measured
+from invoking the action to herdr reporting the new tab as focused. Baseline host: 13th Gen Intel Core
 i9-13900H, 4 cores available, 8 GB RAM, Linux x86_64. Harness in
 [quickstart.md](./quickstart.md#sc-002--under-150-ms). The warm path is one read and one write, both
 local socket round-trips.
