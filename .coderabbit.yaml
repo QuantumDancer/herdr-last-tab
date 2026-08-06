@@ -128,9 +128,21 @@ reviews:
 
         Prose wraps at 100 columns by convention. That is a rule about Markdown
         body text, and only that. YAML frontmatter scalars are metadata read by
-        a loader; table rows and fenced code carry their own line structure.
-        None of them are reflowed to satisfy a prose rule, and an over-long line
-        in one of them is not a finding.
+        a loader; table rows and fenced code carry their own line structure; and
+        so do the generated task records in `specs/**/tasks.md`, whether their
+        checkbox is unchecked or checked. None of them are reflowed to satisfy
+        a prose rule, and an over-long line in one of them is not a finding.
+
+        That exemption is scoped to those generated files rather than to
+        checklists generally, because it is the generation that makes the
+        finding pointless: each record is one task carrying an identifier, links
+        and inline code, written into `specs/**/tasks.md` by `/speckit-tasks`.
+        Reflowing them lasts until the next regeneration and conflicts with
+        every stacked branch that ticks a box, so the finding costs more than
+        the convention buys. A hand-written checklist elsewhere is still prose.
+        If wrapped task lists are wanted, the place to get them is
+        `.specify/templates/tasks-template.md`, not a review finding on each PR
+        that touches the list.
 
         Comments explain *why* -- the business reason or trade-off -- rather than
         restating what the text says.
