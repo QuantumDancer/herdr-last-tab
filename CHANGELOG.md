@@ -25,7 +25,7 @@ keeps working — because the user it affects gets no signal beyond an install t
 The README's stated minimum moves in the same change. A floor raise without both is incomplete.
 -->
 
-## [0.1.0] - 2026-08-03
+## [0.1.0] - 2026-08-07
 
 ### Added
 
