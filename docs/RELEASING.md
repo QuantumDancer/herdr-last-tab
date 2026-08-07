@@ -217,7 +217,7 @@ that was installed — taken from the sidecar of the asset that install actually
 
 | Target | Exercised on | Asset sha256 | Date |
 | --- | --- | --- | --- |
-| `x86_64-unknown-linux-musl` | _not yet recorded_ | | |
+| `x86_64-unknown-linux-musl` | physical host, via `herdr plugin install QuantumDancer/herdr-last-tab` | `44ced3d88eefc1b20bd3a504f8af0e124f79f96bc8e5d0347489560865ed2250` | 2026-08-07 |
 | `aarch64-unknown-linux-musl` | _not yet recorded_ | | |
 | `x86_64-apple-darwin` | _not yet recorded_ | | |
 | `aarch64-apple-darwin` | _not yet recorded_ | | |
